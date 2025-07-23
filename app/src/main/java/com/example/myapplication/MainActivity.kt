@@ -30,12 +30,13 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import com.google.mediapipe.framework.image.MPImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-
-import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 
 class MainActivity : ComponentActivity() {
     private lateinit var landmarker: PoseLandmarker
@@ -55,11 +56,13 @@ class MainActivity : ComponentActivity() {
             )
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setNumPoses(1)
-            .setResultListener { result, _ ->
-                result?.landmarks()?.firstOrNull()?.let { landmarks ->
+            .setResultListener { result: PoseLandmarkerResult, _: MPImage ->
+                val landmarks = result.landmarks()
+                if (landmarks.isNotEmpty()) {
+                    val poseLandmarks = landmarks[0]
                     runOnUiThread {
                         landmarksState.clear()
-                        landmarksState.addAll(landmarks)
+                        landmarksState.addAll(poseLandmarks)
                     }
                 }
             }
@@ -189,7 +192,7 @@ fun startCamera(
             proxy.toBitmap()?.let { bitmap ->
                 val mpImage = BitmapImageBuilder(bitmap).build()
                 val options = ImageProcessingOptions.builder()
-                    .setRotationDegrees(proxy.imageInfo.rotationDegrees) // or `.setRotation()` based on your version
+                    .setRotationDegrees(proxy.imageInfo.rotationDegrees)
                     .build()
 
                 landmarker.detectAsync(mpImage, options, proxy.imageInfo.timestamp)
