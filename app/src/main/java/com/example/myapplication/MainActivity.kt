@@ -118,14 +118,18 @@ fun PoseCameraScreen(
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                    //scaleType = PreviewView.ScaleType.FILL_CENTER
+                    scaleType = PreviewView.ScaleType.FIT_CENTER
                     previewView = this
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        PoseOverlay(landmarksState)
+        //PoseOverlay(landmarksState)
+        if (previewView != null) {
+            PoseOverlay(landmarksState, previewView!!)
+        }
 
         if (landmarksState.isEmpty()) {
             Text(
@@ -138,17 +142,25 @@ fun PoseCameraScreen(
 }
 
 @Composable
-fun PoseOverlay(landmarks: List<NormalizedLandmark>) {
-    val segments = listOf(
-        0 to 1, 1 to 2, 2 to 3, 3 to 7,
-        0 to 4, 4 to 5, 5 to 6, 6 to 8,
-        9 to 10, 11 to 12,
-        11 to 13, 13 to 15, 15 to 17,
-        12 to 14, 14 to 16, 16 to 18
-    )
+fun PoseOverlay(landmarks: List<NormalizedLandmark>, previewView: PreviewView) {
     Canvas(Modifier.fillMaxSize()) {
+        val viewWidth = previewView.width.toFloat()
+        val viewHeight = previewView.height.toFloat()
+
+        val scaleX = size.width / viewWidth
+        val scaleY = size.height / viewHeight
+
         val w = size.width
         val h = size.height
+
+        val segments = listOf(
+            0 to 1, 1 to 2, 2 to 3, 3 to 7,
+            0 to 4, 4 to 5, 5 to 6, 6 to 8,
+            9 to 10, 11 to 12,
+            11 to 13, 13 to 15, 15 to 17,
+            12 to 14, 14 to 16, 16 to 18
+        )
+
         segments.forEach { (s, e) ->
             if (s < landmarks.size && e < landmarks.size) {
                 drawLine(
@@ -159,6 +171,7 @@ fun PoseOverlay(landmarks: List<NormalizedLandmark>) {
                 )
             }
         }
+
         landmarks.forEach {
             drawCircle(
                 color = Color.Red,
