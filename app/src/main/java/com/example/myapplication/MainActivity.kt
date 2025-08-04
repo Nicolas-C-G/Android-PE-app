@@ -30,12 +30,13 @@ import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import com.google.mediapipe.framework.image.MPImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-
-import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 
 class MainActivity : ComponentActivity() {
     private lateinit var landmarker: PoseLandmarker
@@ -55,11 +56,13 @@ class MainActivity : ComponentActivity() {
             )
             .setRunningMode(RunningMode.LIVE_STREAM)
             .setNumPoses(1)
-            .setResultListener { result, _ ->
-                result?.landmarks()?.firstOrNull()?.let { landmarks ->
+            .setResultListener { result: PoseLandmarkerResult, _: MPImage ->
+                val landmarks = result.landmarks()
+                if (landmarks.isNotEmpty()) {
+                    val poseLandmarks = landmarks[0]
                     runOnUiThread {
                         landmarksState.clear()
-                        landmarksState.addAll(landmarks)
+                        landmarksState.addAll(poseLandmarks)
                     }
                 }
             }
@@ -115,14 +118,18 @@ fun PoseCameraScreen(
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).apply {
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                    //scaleType = PreviewView.ScaleType.FILL_CENTER
+                    scaleType = PreviewView.ScaleType.FIT_CENTER
                     previewView = this
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        PoseOverlay(landmarksState)
+        //PoseOverlay(landmarksState)
+        if (previewView != null) {
+            PoseOverlay(landmarksState, previewView!!)
+        }
 
         if (landmarksState.isEmpty()) {
             Text(
@@ -135,17 +142,25 @@ fun PoseCameraScreen(
 }
 
 @Composable
-fun PoseOverlay(landmarks: List<NormalizedLandmark>) {
-    val segments = listOf(
-        0 to 1, 1 to 2, 2 to 3, 3 to 7,
-        0 to 4, 4 to 5, 5 to 6, 6 to 8,
-        9 to 10, 11 to 12,
-        11 to 13, 13 to 15, 15 to 17,
-        12 to 14, 14 to 16, 16 to 18
-    )
+fun PoseOverlay(landmarks: List<NormalizedLandmark>, previewView: PreviewView) {
     Canvas(Modifier.fillMaxSize()) {
+        val viewWidth = previewView.width.toFloat()
+        val viewHeight = previewView.height.toFloat()
+
+        val scaleX = size.width / viewWidth
+        val scaleY = size.height / viewHeight
+
         val w = size.width
         val h = size.height
+
+        val segments = listOf(
+            0 to 1, 1 to 2, 2 to 3, 3 to 7,
+            0 to 4, 4 to 5, 5 to 6, 6 to 8,
+            9 to 10, 11 to 12,
+            11 to 13, 13 to 15, 15 to 17,
+            12 to 14, 14 to 16, 16 to 18
+        )
+
         segments.forEach { (s, e) ->
             if (s < landmarks.size && e < landmarks.size) {
                 drawLine(
@@ -156,6 +171,7 @@ fun PoseOverlay(landmarks: List<NormalizedLandmark>) {
                 )
             }
         }
+
         landmarks.forEach {
             drawCircle(
                 color = Color.Red,
@@ -189,7 +205,7 @@ fun startCamera(
             proxy.toBitmap()?.let { bitmap ->
                 val mpImage = BitmapImageBuilder(bitmap).build()
                 val options = ImageProcessingOptions.builder()
-                    .setRotationDegrees(proxy.imageInfo.rotationDegrees) // or `.setRotation()` based on your version
+                    .setRotationDegrees(proxy.imageInfo.rotationDegrees)
                     .build()
 
                 landmarker.detectAsync(mpImage, options, proxy.imageInfo.timestamp)
